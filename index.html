@@ -91,9 +91,10 @@ textarea{resize:vertical;min-height:84px}
   border-top:3px solid var(--nature);border-radius:var(--r);padding:14px 15px 12px;min-height:148px}
 .tile:hover{border-color:var(--line-strong);border-top-color:var(--nature);box-shadow:0 1px 0 var(--line)}
 .tile .top{display:flex;align-items:center;gap:8px}
+.tile .top .right{margin-left:auto;font-size:12.5px;color:var(--ink-soft)}
 .ref{font-size:12.5px;color:var(--ink-soft);letter-spacing:.02em}
 .objet{font-size:16px;font-weight:600;line-height:1.3;letter-spacing:-.005em}
-.excerpt{font-size:13.5px;color:var(--ink-soft);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.excerpt{font-size:13.5px;color:var(--ink-soft);display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
 .tfoot{margin-top:auto;padding-top:9px;display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-soft)}
 .flagpill{background:var(--flag-bg);color:var(--flag);border-radius:20px;padding:1px 9px;font-size:12px}
 .closed{opacity:.6}
@@ -200,7 +201,7 @@ textarea{resize:vertical;min-height:84px}
    ================================================================ */
 const API="https://script.google.com/macros/s/AKfycbzwa_KvW5EEVqC0dFHdKMFSxe0QHpV21xmHhVoMDeN0x-5dwIl1uzHVD3Y4NHEGA-rf1w/exec";
 
-const NATURES={anomalie:{label:"Anomalie",color:"var(--anomalie)"},evolution:{label:"Évolution",color:"var(--evolution)"},question:{label:"Question",color:"var(--question)"}};
+const NATURES={anomalie:{label:"Anomalie",color:"var(--anomalie)"},question:{label:"Question",color:"var(--question)"},evolution:{label:"Évolution",color:"var(--evolution)"}};
 let ROLE=null,CODE=null,NOM=null,FICHES=[],FILTER={nature:null,bloq:false,clos:false},OPEN=null,PENDING=[];
 
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -290,13 +291,13 @@ function render(){
 }
 function tile(f){
   const n=NATURES[f.nature],img=f.shots.length+f.msgs.reduce((s,m)=>s+m.shots.length,0);
+  const pied=[img?img+" capture"+(img>1?"s":""):"",f.statut==="cloturee"?"Clôturée":""].filter(Boolean);
   return `<button class="tile ${f.statut==="cloturee"?"closed":""}" style="--nature:${n.color}" onclick="openFiche('${f.id}')">
-    <div class="top"><span class="ref">${f.id}</span>${f.bloq?'<span class="flagpill">Bloquant</span>':''}</div>
+    <div class="top"><span class="ref">${f.id}</span>${f.bloq?'<span class="flagpill">Bloquant</span>':''}
+      <span class="right">${f.msgs.length?f.msgs.length+(f.msgs.length>1?" messages":" message"):"Sans réponse"}</span></div>
     <div class="objet">${esc(f.objet)}</div>
     <div class="excerpt">${esc(f.constate)}</div>
-    <div class="tfoot"><span>${f.msgs.length?f.msgs.length+(f.msgs.length>1?" messages":" message"):"Pas de réponse"}</span>
-      ${img?`<span>${img} capture${img>1?"s":""}</span>`:""}
-      <span>${f.statut==="cloturee"?"Clôturée":f.date}</span></div></button>`;
+    ${pied.length?`<div class="tfoot">${pied.map(x=>`<span>${x}</span>`).join("")}</div>`:""}</button>`;
 }
 
 /* ---------------- fiche ---------------- */
