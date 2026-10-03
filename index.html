@@ -204,6 +204,17 @@ const API="https://script.google.com/macros/s/AKfycbzwa_KvW5EEVqC0dFHdKMFSxe0QHp
 const NATURES={anomalie:{label:"Anomalie",color:"var(--anomalie)"},question:{label:"Question",color:"var(--question)"},evolution:{label:"Évolution",color:"var(--evolution)"}};
 let ROLE=null,CODE=null,NOM=null,FICHES=[],FILTER={nature:null,bloq:false,clos:false},OPEN=null,PENDING=[];
 
+function normaliser(f){
+  f.nature=String(f.nature||"").trim().toLowerCase();
+  if(!NATURES[f.nature])f.nature="question";
+  f.statut=String(f.statut||"ouverte").trim().toLowerCase().indexOf("clot")===0||
+           String(f.statut||"").trim().toLowerCase().indexOf("clôt")===0?"cloturee":"ouverte";
+  f.bloq=f.bloq===true||String(f.bloq).trim().toLowerCase()==="oui";
+  f.shots=f.shots||[];f.msgs=f.msgs||[];
+  f.msgs.forEach(m=>{m.shots=m.shots||[];});
+  return f;
+}
+
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const el=i=>document.getElementById(i);
 
@@ -234,7 +245,7 @@ async function enter(){
       : "Code non reconnu.";
     CODE=null;return;}
   ROLE=j.role;NOM=j.nom;
-  FICHES=j.fiches.map(f=>Object.assign(f,{bloq:f.bloq===true||f.bloq==="oui"}));
+  FICHES=j.fiches.map(normaliser);
   try{sessionStorage.setItem("avac",c);}catch(e){}
   msg.textContent="";
   el("gate").classList.add("hidden");el("app").classList.remove("hidden");
@@ -255,7 +266,7 @@ async function recharger(){
   el("board").innerHTML='<div class="empty">Chargement...</div>';
   const j=await api("load");
   if(!j.ok){el("board").innerHTML='<div class="empty">Connexion au suivi impossible'+(j.detail?" ("+j.detail+")":"")+'.</div>';return;}
-  FICHES=j.fiches.map(f=>Object.assign(f,{bloq:f.bloq===true||f.bloq==="oui"}));
+  FICHES=j.fiches.map(normaliser);
   render();
 }
 
@@ -281,6 +292,7 @@ function render(){
     +`<button class="filt" aria-pressed="${FILTER.bloq}" onclick="toggleBloq()">Bloquantes</button>`
     +`<button class="filt" aria-pressed="${FILTER.clos}" onclick="toggleClos()">Clôturées</button>`;
   const v=visible();
+  el("board").onclick=e=>{const b=e.target.closest(".tile");if(b)openFiche(b.dataset.id);};
   el("board").innerHTML=v.length?Object.entries(NATURES).map(([k,nat])=>{
     const g=v.filter(f=>f.nature===k);if(!g.length)return"";
     g.sort((a,b)=>(b.bloq?1:0)-(a.bloq?1:0));
@@ -292,7 +304,7 @@ function render(){
 function tile(f){
   const n=NATURES[f.nature],img=f.shots.length+f.msgs.reduce((s,m)=>s+m.shots.length,0);
   const pied=[img?img+" capture"+(img>1?"s":""):"",f.statut==="cloturee"?"Clôturée":""].filter(Boolean);
-  return `<button class="tile ${f.statut==="cloturee"?"closed":""}" style="--nature:${n.color}" onclick="openFiche('${f.id}')">
+  return `<button class="tile ${f.statut==="cloturee"?"closed":""}" style="--nature:${n.color}" data-id="${f.id}">
     <div class="top"><span class="ref">${f.id}</span>${f.bloq?'<span class="flagpill">Bloquant</span>':''}
       <span class="right">${f.msgs.length?f.msgs.length+(f.msgs.length>1?" messages":" message"):"Sans réponse"}</span></div>
     <div class="objet">${esc(f.objet)}</div>
@@ -307,6 +319,14 @@ function shotStrip(list,cible,mid,ouverte){
     ${ouverte?`<button class="addshot" onclick="pick('${cible}','${mid}')">Ajouter une capture</button>`:""}</div>`;
 }
 function openFiche(id){
+  try{ ouvrir(id); }
+  catch(err){
+    el("detailView").innerHTML='<button class="back" onclick="showBoard()">Retour au tableau</button>'+
+      '<div class="empty">Ouverture impossible : '+esc(err&&err.message||err)+'</div>';
+    el("boardView").classList.add("hidden");el("detailView").classList.remove("hidden");
+  }
+}
+function ouvrir(id){
   OPEN=id;PENDING=[];
   const f=FICHES.find(x=>x.id===id),n=NATURES[f.nature],ouv=f.statut==="ouverte";
   const peutSupprimer=m=>ouv&&(ROLE==="cabinet"||m.who===ROLE);
