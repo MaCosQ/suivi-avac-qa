@@ -206,10 +206,15 @@ const el=i=>document.getElementById(i);
 
 /* ---------------- appels au script ---------------- */
 async function api(action,data){
-  const r=await fetch(API,{method:"POST",body:JSON.stringify(Object.assign({action,code:CODE},data||{}))});
-  const j=await r.json();
-  if(!j.ok&&j.erreur==="code"){alert("Code refusé.");leave();}
-  return j;
+  if(/VOTRE_ID_DE_DEPLOIEMENT/.test(API)) return {ok:false,erreur:"reseau",detail:"adresse du script non renseignée"};
+  if(/\/dev$/.test(API)) return {ok:false,erreur:"reseau",detail:"adresse /dev : il faut l'adresse /exec d'un déploiement"};
+  try{
+    const r=await fetch(API,{method:"POST",body:JSON.stringify(Object.assign({action,code:CODE},data||{}))});
+    if(!r.ok) return {ok:false,erreur:"reseau",detail:"HTTP "+r.status};
+    return await r.json();
+  }catch(e){
+    return {ok:false,erreur:"reseau",detail:String(e&&e.message||e)};
+  }
 }
 
 /* ---------------- entree ---------------- */
@@ -220,7 +225,11 @@ async function enter(){
   const msg=el("gateMsg"); msg.textContent="Vérification...";
   CODE=c;
   const j=await api("auth");
-  if(!j.ok){msg.textContent="Code non reconnu.";CODE=null;return;}
+  if(!j.ok){
+    msg.textContent = j.erreur==="reseau"
+      ? "Connexion au script impossible ("+j.detail+"). Vérifiez l'adresse /exec dans index.html."
+      : "Code non reconnu.";
+    CODE=null;return;}
   ROLE=j.role;NOM=j.nom;
   try{sessionStorage.setItem("avac",c);}catch(e){}
   msg.textContent="";
@@ -241,7 +250,7 @@ function leave(){
 async function recharger(){
   el("board").innerHTML='<div class="empty">Chargement...</div>';
   const j=await api("load");
-  if(!j.ok){el("board").innerHTML='<div class="empty">Connexion au suivi impossible. Réessayez dans un instant.</div>';return;}
+  if(!j.ok){el("board").innerHTML='<div class="empty">Connexion au suivi impossible'+(j.detail?" ("+j.detail+")":"")+'.</div>';return;}
   FICHES=j.fiches.map(f=>Object.assign(f,{bloq:f.bloq===true||f.bloq==="oui"}));
   render();
 }
